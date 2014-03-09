@@ -98,21 +98,23 @@
   (append (map (λ(x) (rename-variables x))c))
   )
 
-(define (resolve clause1 clause2)
-  
+(define (resolve-clause term clause)
+ (let [(resolvent (remove (λ(x) (= (length x) 0)) (append-map (λ(x) (binary-resolution term x)) clause)))]
+   (if (eq? resolvent clause) (list term resolvent) resolvent)
+   )
   )
 
 (define (binary-resolution x y)
   (cond
-    [(is-not? (car x)) (if (is-not? (car y)) '() (resolution-helper (car (cdr x)) y))]
+    [(is-not? (car x)) (if (is-not? (car y)) y (resolution-helper (car (cdr x)) y))]
     [(is-not? (car y)) (binary-resolution y x)]
-    [else #f]
+    [else y]
     )
   )
 
 (define (resolution-helper x y)
   (let [(unified (unify x y '()))]
-    (if unified '() #f)
+    (if unified '() y)
     )
   )
 
@@ -131,7 +133,7 @@
 ;(map (λ(x) (assoc '¬ x)) top-clause)
 ;(unifier '(knows 1 x) '(knows y (mother y)))
 (trace binary-resolution resolution-helper)
-(binary-resolution '(¬(knows 1 x)) '(knows y (mother y)))
+(resolve-clause '(¬(knows 1 x)) '((knows y (mother y)) (a (b c))))
 
 ;(rename-variables '(X Y (X Z) T (X T)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TEST UNIFY FUNCTION  ;;;;;;;;;;;;;;;;;;;;;;;;;
