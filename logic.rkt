@@ -1,7 +1,8 @@
 #lang racket
 (require (lib "trace.ss"))
 
-(define (variable? x) (symbol? x))
+(define (variable? x) (and (not (is-not? x)) (symbol? x)))
+(define (is-not? x) (eq? '¬ x))
 (define (isbound v θ) (pair? (assoc v θ)))
 (define (get-binding var bindings) (assoc var bindings))
 (define (binding-var binding) (car binding))
@@ -65,10 +66,6 @@
     [else (map (λ(x) (replace-term a-list x)) exp)]
   ))
 
-(define (unifier x y)
-  (instantiate x (unify x y '()))
-  )
-
 (define (instantiate x e)
   (subst-bindings e x)
   )
@@ -86,7 +83,7 @@
   )
 
 (define (rename-variables x)
-  (map (λ(y) (cons y (gensym y))) (freevarsin x))
+  (subst-bindings (map (λ(y) (cons y (gensym y))) (freevarsin x)) x)
   )
 
 (define (instantiate-clause c a)
@@ -94,14 +91,49 @@
   )
 
 (define (rename-clause c)
-  (map (λ(x) (rename-variables x)) (freevarsin-clause c))
+    (map (λ(x) (rename-variables x)) c)
   )
 
 (define (freevarsin-clause c)
   (append (map (λ(x) (rename-variables x))c))
   )
 
-(rename-variables '(X Y (X Z) T (X T)))
+(define (resolve clause1 clause2)
+  
+  )
+
+(define (binary-resolution x y)
+  (cond
+    [(is-not? (car x)) (if (is-not? (car y)) '() (resolution-helper (car (cdr x)) y))]
+    [(is-not? (car y)) (binary-resolution y x)]
+    [else #f]
+    )
+  )
+
+(define (resolution-helper x y)
+  (let [(unified (unify x y '()))]
+    (if unified '() #f)
+    )
+  )
+
+(define (unifier x y)
+  (instantiate x (unify x (rename-variables y) '()))
+  )
+
+(define clause1 '((=(* x 1)x)))
+(define clause2 '((=(* 1 x)x)))
+(define clause3 '( ((=(* x 1)x)) ((=(* 1 x)x)) ))
+(define top-clause '((¬(=(*(G)(F))(H))) ))
+(define clause4 '((=(*(G)(F))(H)) ) )
+;(unifier clause1 clause1)
+;(rename-clause clause3)
+;(resolve top-clause clause4)
+;(map (λ(x) (assoc '¬ x)) top-clause)
+;(unifier '(knows 1 x) '(knows y (mother y)))
+(trace binary-resolution resolution-helper)
+(binary-resolution '(¬(knows 1 x)) '(knows y (mother y)))
+
+;(rename-variables '(X Y (X Z) T (X T)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TEST UNIFY FUNCTION  ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;(trace unify unify-var extend-bindings occurs-in? subst-bindings)
 ;(unify '(X 3 Y) '((Y Z) Z 7) '())
