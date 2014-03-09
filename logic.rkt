@@ -98,44 +98,35 @@
   (append (map (λ(x) (rename-variables x))c))
   )
 
-(define (resolve-clause term clause)
- (let [(resolvent (remove (λ(x) (= (length x) 0)) (append-map (λ(x) (binary-resolution term x)) clause)))]
-   (if (eq? resolvent clause) (list term resolvent) resolvent)
-   )
-  )
-
-(define (binary-resolution x y)
-  (cond
-    [(is-not? (car x)) (if (is-not? (car y)) y (resolution-helper (car (cdr x)) y))]
-    [(is-not? (car y)) (binary-resolution y x)]
-    [else y]
-    )
-  )
-
-(define (resolution-helper x y)
-  (let [(unified (unify x y '()))]
-    (if unified '() y)
-    )
-  )
-
+; just for testing purposes
 (define (unifier x y)
   (instantiate x (unify x (rename-variables y) '()))
   )
 
+(define (is-not-term? x)
+  (is-not? (car x)))
+
+(define (resolve lc kd)
+  (if (is-not-term? (car lc)) (filter (λ(x) (eq? (resolve-terms (cdr (car lc)) x) #f)) (rename-clause kd)) #f)
+  )
+
+(define (resolve-terms x y)
+  (if (unify (car x) y '()) '() #f)
+  )
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;; TESTING ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define clause1 '((=(* x 1)x)))
 (define clause2 '((=(* 1 x)x)))
 (define clause3 '( ((=(* x 1)x)) ((=(* 1 x)x)) ))
 (define top-clause '((¬(=(*(G)(F))(H))) ))
 (define clause4 '((=(*(G)(F))(H)) ) )
-;(unifier clause1 clause1)
-;(rename-clause clause3)
-;(resolve top-clause clause4)
-;(map (λ(x) (assoc '¬ x)) top-clause)
-;(unifier '(knows 1 x) '(knows y (mother y)))
-(trace binary-resolution resolution-helper)
-(resolve-clause '(¬(knows 1 x)) '((knows y (mother y)) (a (b c))))
+(define clauseA '((¬(knows 1 x)) (¬(a (b c)))))
+(define clauseB '((knows y (mother y)) (a (b c)) (d (e (f g)))))
+(trace resolve resolve-terms)
+(resolve clauseB clauseB)
 
-;(rename-variables '(X Y (X Z) T (X T)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TEST UNIFY FUNCTION  ;;;;;;;;;;;;;;;;;;;;;;;;;
 ;(trace unify unify-var extend-bindings occurs-in? subst-bindings)
 ;(unify '(X 3 Y) '((Y Z) Z 7) '())
