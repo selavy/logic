@@ -114,6 +114,46 @@
   (if (unify (car x) y '()) '() #f)
   )
 
+(define(A*-graph-search start goal? moves heuristic)
+  (struct node (state pred move g h f))
+  (define (node<=? x y) (<= (node-f x) (node-f y)))
+  (define Q (make-heap node<=?))
+  (define ht (make-hash))
+  (define (not-in-hash? SAW) (eq? #f (hash-ref ht (get-hash (car SAW)) #f)))
+  (define (print-solution anode)
+    (cond
+      [(null? anode)]
+      [(null? (node-pred anode)) (list 'start (node-state anode) (node-g anode) (node-h anode) (node-f anode))]
+      [else (list (print-solution (node-pred anode)) (list (node-move anode) (node-state anode) (node-g anode) (node-h anode) (node-f anode)))]))
+  (define (add-SAW-to-heap SAW prev)
+    (let* [(weight (car (cdr SAW))) (h (heuristic (car SAW))) (action (car (cdr SAW)))]
+      (let [(g (if (null? prev) weight (+weight (node-g prev))))]
+        (define f (+ g h))
+        (node (car SAW) prev action f g h))))
+  (define (get-hash state) state)
+  (define (no-solution) 'failure)
+  
+  ; add all head clauses to the queue
+  (map (λ(x) (let [(h (heuristic x))] (heap-add! Q (node x '() 'start 0 h h)))) start)
+  (let loop ()
+    (define curr (heap-min Q))
+    (hash-set! ht (get-hash (node-state curr)) curr)
+    (heap-remove-min! Q)
+    (cond
+      [(goal? (node-state curr)) (print-solution curr)]
+      [else
+       (let ([SAWs (filter not-in-hash? (move (node-state curr)))])
+         (heap-add-all! Q (map (λ(x) (add-SAW-to-heap x curr)) SAWs)))
+       (if (= (heap-count Q) 0) no-solution (loop))])))
+
+(define (deduce definite-horn-clauses top-clauses)
+  (define (res-moves s) (filter (λ(x) x) (map (λ(x) (resolve x definite-horn-clauses)) s)))
+  (define (res-heuristic s) 0)
+  (define (res-goal? s) (eq? s '()))
+  ;(A*-graph-search top-clauses res-goal? res-moves res-heuristic)
+  (res-moves top-clauses)
+  )
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TESTING ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define clause1 '((=(* x 1)x)))
@@ -123,8 +163,32 @@
 (define clause4 '((=(*(G)(F))(H)) ) )
 (define clauseA '((¬(knows 1 x)) (¬(a (b c)))))
 (define clauseB '((knows y (mother y)) (a (b c)) (d (e (f g)))))
-(trace resolve resolve-terms)
-(resolve clauseB clauseB)
+
+(define axiom1 '((=(* x 1)x)))
+(define axiom2 '((=(* 1 x)x)))
+(define axiom3 '((=(* x(/x))1)))
+(define axiom4 '((=(*(/ x)x)1)))
+(define axiom5 '((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=* u z)v)))
+(define axiom6 '((=(* u z)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* x w) v))))
+(define axiom7 '((=(* x x)1)))
+(define hypo '((=(*(F)(G))(H))))
+(define conj '(((¬(=(*(G)(F))(H))))))
+
+(define axioms2 '(
+                  ((=(* x 1)x))
+                  ((=(* 1 x)x))
+                  ((=(* x(/x))1))
+                  ((=(*(/ x)x)1))
+                  ((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=* u z)v))
+                  ((=(* u z)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* x w) v)))
+                  ((=(* x x)1))
+                  ((=(*(F)(G))(H)))
+                  (((¬(=(*(G)(F))(H)))))
+                  ))
+
+(define conjs2 '(((¬(=(*(G)(F))(H))))))
+(deduce axioms2 conjs2)
+;(trace resolve resolve-terms)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TEST UNIFY FUNCTION  ;;;;;;;;;;;;;;;;;;;;;;;;;
