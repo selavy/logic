@@ -72,38 +72,8 @@
 (define (instantiate x e)
   (subst-bindings e x)
   )
-
-(define (unique-find-anywhere-if exp found-so-far)
-  (cond
-    [(eq? exp '()) found-so-far]
-    [else (if (atom? exp)
-              (if (and (symbol? exp) (not (member exp found-so-far))) (cons exp found-so-far) found-so-far)
-              (unique-find-anywhere-if (first exp) (unique-find-anywhere-if (rest exp) found-so-far)))])
-  )
-
-(define (freevarsin x)
-  (unique-find-anywhere-if x '())
-  )
-
-(define (rename-variables x)
-  (map (λ(y) (cons y (gensym y))) (freevarsin x))
-  )
-
-(define (instantiate-clause c a)
-  (map (λ(x) (instantiate x)) c)
-  )
-
-(define (rename-clause c)
-  (map (λ(x) (rename-variables x)) (freevarsin-clause c))
-  )
-
-(define (freevarsin-clause c)
-  (append (map (λ(x) (rename-variables x))c))
-  )
-
-(rename-variables '(X Y (X Z) T (X T)))
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TEST UNIFY FUNCTION  ;;;;;;;;;;;;;;;;;;;;;;;;;
-;(trace unify unify-var extend-bindings occurs-in? subst-bindings)
+(trace unify unify-var extend-bindings occurs-in? subst-bindings)
 ;(unify '(X 3 Y) '((Y Z) Z 7) '())
 ;(unify '(john x) '(john y) '())
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -125,9 +95,4 @@
 ;
 ;INPUT : (unify '(X 3 Y) '((Y Z) Z 7) '())
 ;OUTPUT: ((X 7 3) (Z . 3) (Y . 7))
-;
-;INPUT : (unify '(X 3 Y) '(2 Z W) '())
-;OUTPUT: ((X . 2) (Z . 3) (Y . W))
-;
-;INPUT : (unify 'X '(X 2) '())
-;OUTPUT: #f
+(unifier '(X 3 Y) '((Y Z) Z 7))
