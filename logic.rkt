@@ -114,6 +114,7 @@
   (if (unify (car x) y '()) '() #f)
   )
 
+(require data/heap)
 (define(A*-graph-search start goal? moves heuristic)
   (struct node (state pred move g h f))
   (define (node<=? x y) (<= (node-f x) (node-f y)))
@@ -127,7 +128,7 @@
       [else (list (print-solution (node-pred anode)) (list (node-move anode) (node-state anode) (node-g anode) (node-h anode) (node-f anode)))]))
   (define (add-SAW-to-heap SAW prev)
     (let* [(weight (car (cdr SAW))) (h (heuristic (car SAW))) (action (car (cdr SAW)))]
-      (let [(g (if (null? prev) weight (+weight (node-g prev))))]
+      (let [(g (if (null? prev) weight (+ weight (node-g prev))))]
         (define f (+ g h))
         (node (car SAW) prev action f g h))))
   (define (get-hash state) state)
@@ -142,12 +143,12 @@
     (cond
       [(goal? (node-state curr)) (print-solution curr)]
       [else
-       (let ([SAWs (filter not-in-hash? (move (node-state curr)))])
+       (let ([SAWs (filter not-in-hash? (moves (node-state curr)))])
          (heap-add-all! Q (map (λ(x) (add-SAW-to-heap x curr)) SAWs)))
        (if (= (heap-count Q) 0) no-solution (loop))])))
 
 (define (deduce definite-horn-clauses top-clauses)
-  (define (res-moves s) (filter (λ(x) x) (map (λ(x) (resolve x definite-horn-clauses)) s)))
+  (define (res-moves s) (filter (λ(x) (car x)) (map (λ(x) (list x 'move 1)) (car (map (λ(x) (resolve x definite-horn-clauses)) s)))))
   (define (res-heuristic s) 0)
   (define (res-goal? s) (eq? s '()))
   ;(A*-graph-search top-clauses res-goal? res-moves res-heuristic)
@@ -171,8 +172,8 @@
 (define axiom5 '((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=* u z)v)))
 (define axiom6 '((=(* u z)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* x w) v))))
 (define axiom7 '((=(* x x)1)))
-(define hypo '((=(*(F)(G))(H))))
-(define conj '(((¬(=(*(G)(F))(H))))))
+(define hypo '((=(*1 2)3)))
+(define conj '(((¬(=(*1 2)3)))))
 
 (define axioms2 '(
                   ((=(* x 1)x))
@@ -182,11 +183,11 @@
                   ((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=* u z)v))
                   ((=(* u z)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* x w) v)))
                   ((=(* x x)1))
-                  ((=(*(F)(G))(H)))
-                  (((¬(=(*(G)(F))(H)))))
+                  ((=(*1 2)3))
+                  (((¬(=(*2 1)3))))
                   ))
 
-(define conjs2 '(((¬(=(*(G)(F))(H))))))
+(define conjs2 '(((¬(=(*2 1)3)))))
 (deduce axioms2 conjs2)
 ;(trace resolve resolve-terms)
 
