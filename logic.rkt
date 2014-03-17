@@ -74,7 +74,7 @@
   (cond
     [(eq? exp '()) found-so-far]
     [else (if (atom? exp)
-              (if (and (symbol? exp) (not (member exp found-so-far))) (cons exp found-so-far) found-so-far)
+              (if (and (variable? exp) (not (member exp found-so-far))) (cons exp found-so-far) found-so-far)
               (unique-find-anywhere-if (first exp) (unique-find-anywhere-if (rest exp) found-so-far)))])
   )
 
@@ -106,12 +106,19 @@
 (define (is-not-term? x)
   (is-not? (car x)))
 
-(define (resolve lc kd)
-  (if (is-not-term? (car lc)) (filter (λ(x) (eq? (resolve-terms (cdr (car lc)) x) #f)) (rename-clause kd)) #f)
-  )
+;(define (resolve lc kd)
+;  (if (is-not-term? (car lc)) (filter (λ(x) (eq? (resolve-terms (cdr (car lc)) x) #f)) (rename-clause kd)) #f)
+;  )
 
-(define (resolve-terms x y)
-  (if (unify (car x) y '()) '() #f)
+;(define (resolve-terms x y)
+;  (if (unify (car x) y '()) '() #f)
+;  )
+
+
+(define (first-term x) (car x))
+
+(define (resolve lc kd)
+  (if (is-not-term? (first-term lc)) (unifier (car (cdr (first-term lc))) (first-term kd)) #f)
   )
 
 (require data/heap)
@@ -172,23 +179,30 @@
 (define axiom5 '((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=* u z)v)))
 (define axiom6 '((=(* u z)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* x w) v))))
 (define axiom7 '((=(* x x)1)))
-(define hypo '((=(*1 2)3)))
-(define conj '(((¬(=(*1 2)3)))))
+(define hypo '((=(* (F) (G)) (H))))
+(define conj '(((¬(=(*(G) (F))(H))))))
 
 (define axioms2 '(
                   ((=(* x 1)x))
                   ((=(* 1 x)x))
-                  ((=(* x(/x))1))
+                  ((=(* x (/x))1))
                   ((=(*(/ x)x)1))
-                  ((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=* u z)v))
+                  ((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* u z)v)))
                   ((=(* u z)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* x w) v)))
                   ((=(* x x)1))
-                  ((=(*1 2)3))
-                  (((¬(=(*2 1)3))))
+                  ((=(*(F) (G)) (H)))
                   ))
 
-(define conjs2 '(((¬(=(*2 1)3)))))
-(deduce axioms2 conjs2)
+(define conjs2 '(( (¬(= (*(G) (F)) (H))) )) )
+
+
+
+;(trace resolve)
+(resolve conj hypo)
+(resolve (car conjs2) axiom5) 
+
+;(trace deduce)
+;(deduce axioms2 conjs2)
 ;(trace resolve resolve-terms)
 
 
