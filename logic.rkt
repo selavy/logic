@@ -75,7 +75,7 @@
     [(eq? exp '()) found-so-far]
     [else (if (atom? exp)
               (if (and (variable? exp) (not (member exp found-so-far))) (cons exp found-so-far) found-so-far)
-              (unique-find-anywhere-if (first exp) (unique-find-anywhere-if (rest exp) found-so-far)))])
+              (unique-find-anywhere-if (rest (first exp)) (unique-find-anywhere-if (rest (rest exp)) found-so-far)))])
   )
 
 (define (freevarsin x)
