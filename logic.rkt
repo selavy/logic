@@ -87,7 +87,7 @@
   )
 
 (define (instantiate-clause c a)
-  (map (λ(x) (instantiate x)) c)
+  (map (λ(x) (instantiate x a)) c)
   )
 
 (define (rename-clause c)
@@ -98,7 +98,6 @@
   (append (map (λ(x) (rename-variables x))c))
   )
 
-; just for testing purposes
 (define (unifier x y)
   (instantiate x (unify x (rename-variables y) '()))
   )
@@ -106,19 +105,19 @@
 (define (is-not-term? x)
   (is-not? (car x)))
 
-;(define (resolve lc kd)
-;  (if (is-not-term? (car lc)) (filter (λ(x) (eq? (resolve-terms (cdr (car lc)) x) #f)) (rename-clause kd)) #f)
-;  )
-
-;(define (resolve-terms x y)
-;  (if (unify (car x) y '()) '() #f)
-;  )
-
-
 (define (first-term x) (car x))
 
+;(define (resolve lc kd)
+;  (if (is-not-term? (first-term lc)) (unifier (car (cdr (first-term lc))) (first-term kd)) #f)
+;  )
+
 (define (resolve lc kd)
-  (if (is-not-term? (first-term lc)) (unifier (car (cdr (first-term lc))) (first-term kd)) #f)
+  (if (is-not-term? (first-term lc))
+      (let ([unifiable (unify (car (cdr (first-term (rename-clause lc)))) (first-term kd) '())])
+        (if unifiable (instantiate-clause (append (cdr lc) (cdr kd)) unifiable) #f)
+        )
+      #f
+      )
   )
 
 (require data/heap)
@@ -139,7 +138,7 @@
         (define f (+ g h))
         (node (car SAW) prev action f g h))))
   (define (get-hash state) state)
-  (define (no-solution) 'failure)
+  (define no-solution 'failure)
   
   ; add all head clauses to the queue
   (map (λ(x) (let [(h (heuristic x))] (heap-add! Q (node x '() 'start 0 h h)))) start)
@@ -155,13 +154,12 @@
        (if (= (heap-count Q) 0) no-solution (loop))])))
 
 (define (deduce definite-horn-clauses top-clauses)
-  (define (res-moves s) (filter (λ(x) (car x)) (map (λ(x) (list x 'move 1)) (car (map (λ(x) (resolve x definite-horn-clauses)) s)))))
+  (define (res-moves s) (map (λ(x) (list x 'move 1)) (filter (λ(x) (not (or (eq? x #f) (eq? x '())))) (map (λ(x) (append-map (λ(y) (printf "x = ~s\ny = ~s\n\n" y x) (resolve y x)) definite-horn-clauses)) s))))
   (define (res-heuristic s) 0)
   (define (res-goal? s) (eq? s '()))
-  ;(A*-graph-search top-clauses res-goal? res-moves res-heuristic)
-  (res-moves top-clauses)
+  (A*-graph-search top-clauses res-goal? res-moves res-heuristic)
+  ;(res-moves top-clauses)
   )
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TESTING ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define clause1 '((=(* x 1)x)))
@@ -176,11 +174,11 @@
 (define axiom2 '((=(* 1 x)x)))
 (define axiom3 '((=(* x(/x))1)))
 (define axiom4 '((=(*(/ x)x)1)))
-(define axiom5 '((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=* u z)v)))
+(define axiom5 '((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* u z) v))))
 (define axiom6 '((=(* u z)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* x w) v))))
 (define axiom7 '((=(* x x)1)))
 (define hypo '((=(* (F) (G)) (H))))
-(define conj '(((¬(=(*(G) (F))(H))))))
+(define conj '((¬(=(* (G) (F))(H)))) )
 
 (define axioms2 '(
                   ((=(* x 1)x))
@@ -193,13 +191,15 @@
                   ((=(*(F) (G)) (H)))
                   ))
 
-(define conjs2 '(( (¬(= (*(G) (F)) (H))) )) )
+(define conjs2 '( ((¬(= (*(G) (F)) (H)))) ) )
 
 
 
-;(trace resolve)
-(resolve conj hypo)
-(resolve (car conjs2) axiom5) 
+(trace deduce)
+;(resolve conj axiom5)
+(deduce conjs2 axioms2) 
+;(resolve '( (¬(=(* (G) (F))(H))) ) '( (=(* x w)v) )) 
+;(unify '((¬ (= (* (G) (F)) (H)))) '((= (* (F) (G)) (H))) '())
 
 ;(trace deduce)
 ;(deduce axioms2 conjs2)
