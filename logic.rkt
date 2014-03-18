@@ -11,15 +11,6 @@
 (define (lookup var bindings) (binding-val (get-binding var bindings)))
 (define (extend-bindings var val bindings)
   (cons (make-binding var val) bindings))
-(define (occurs-in? var x bindings)
-  (cond 
-    [(eq? var x) #t]
-    [(and (variable? x) (get-binding x bindings))
-     (occurs-in? var (lookup x bindings) bindings)]
-    [(pair? x) (or (occurs-in? var (car x) bindings)
-                   (occurs-in? var (cdr x) bindings))]
-    [else #f])
-  )
 (define (atom? x) (not (or (pair? x) (list? x))))
 (define (reuse-cons x y x-y)
                     (if (and (eq? x (car x-y)) (eq? y (cdr x-y))) x-y (cons x y))
@@ -40,24 +31,36 @@
     [else (reuse-cons (subst-bindings bindings (first x))
                       (subst-bindings bindings (rest x))
                       x)]))
-(define (unify x y bindings)
-  (cond 
-    [(eq? bindings #f) #f]
-    [(eq? x y) bindings]
-    [(variable? x) (unify-var x y bindings)]
-    [(variable? y) (unify-var y x bindings)]
-    [(and (pair? x) (pair? y)) (unify (cdr x) (cdr y) (unify (car x) (car y) bindings))]
-    [else #f])
-  )
+(define (unify x y θ)
+  (cond
+    ((eq? θ #f) #f)
+    ((and (Var? x)(isBound x θ)) (unify (value x θ) y θ))
+    ((and (Var? y)(isBound y θ)) (unify x (value y θ) θ))
+    ((eq? x y) θ)
+    ((Var? x) (if (occur? x y θ) #f (cons (cons y x) θ)))
+    ((Var? y) (if (occur? y x θ) #f (cons (cons y x) θ)))
+    ((equal? x y) θ)
+    ((not (and (pair? x)(pair? y))) #f)
+    ((not (eq? (car x)(car y))) #f)
+    ((not (= (length x)(length y))) #f)
+   (else (foldl unify θ (cdr x)(cdr y)))))
 
-(define (unify-var var x bindings) 
-  (cond [(get-binding var bindings)
-         (unify (lookup var bindings) x bindings)]
-        [(and (variable? x) (get-binding x bindings))
-         (unify var (lookup x bindings) bindings)]
-        [(occurs-in? var x bindings) #f]
-        [else (extend-bindings var x bindings)])
-  )
+(define (occur? v x θ)
+  (cond
+    ((and (Var? x)(isBound x θ)) (occur? v (value x θ) θ))
+    ((eq? v x) #t)
+    ((Var? v) #f)
+    ((not (pair? x)) #f)
+   (else (ormap (λ y (occur? v y θ)) (cdr x)))))
+
+(define (Var? v)
+  (symbol? v))
+
+(define (isBound x θ)
+  (if (eq? (assoc x θ) #f) #f #t))
+
+(define (value x θ)
+  (cdr (assoc x θ)))
 
 (define (replace-term a-list exp)
   (cond
@@ -103,18 +106,14 @@
   )
 
 (define (is-not-term? x)
-  (is-not? (car x)))
+  (is-not? (first x)))
 
-(define (first-term x) (car x))
-
-;(define (resolve lc kd)
-;  (if (is-not-term? (first-term lc)) (unifier (car (cdr (first-term lc))) (first-term kd)) #f)
-;  )
+(define (first-term x) (first x))
 
 (define (resolve lc kd)
   (if (is-not-term? (first-term lc))
-      (let ([unifiable (unify (car (cdr (first-term (rename-clause lc)))) (first-term kd) '())])
-        (if unifiable (instantiate-clause (append (cdr lc) (cdr kd)) unifiable) #f)
+      (let* ([renamed-lc (rename-clause lc)] [unifiable (unify (first (rest (first-term renamed-lc))) (first-term kd) '())])
+        (if unifiable (instantiate-clause (append (cdr renamed-lc) (cdr kd)) unifiable) #f)
         )
       #f
       )
@@ -133,14 +132,14 @@
       [(null? (node-pred anode)) (list 'start (node-state anode) (node-g anode) (node-h anode) (node-f anode))]
       [else (list (print-solution (node-pred anode)) (list (node-move anode) (node-state anode) (node-g anode) (node-h anode) (node-f anode)))]))
   (define (add-SAW-to-heap SAW prev)
-    (let* [(weight (car (cdr SAW))) (h (heuristic (car SAW))) (action (car (cdr SAW)))]
+    (printf "SAW = ~s\nprev = ~s\n\n" SAW prev)
+    (let* [(weight (car (cdr (cdr SAW)))) (h (heuristic (car SAW))) (action (car (cdr SAW)))]
       (let [(g (if (null? prev) weight (+ weight (node-g prev))))]
         (define f (+ g h))
-        (node (car SAW) prev action f g h))))
+        (node (car SAW) prev action g h f))))
   (define (get-hash state) state)
   (define no-solution 'failure)
   
-  ; add all head clauses to the queue
   (map (λ(x) (let [(h (heuristic x))] (heap-add! Q (node x '() 'start 0 h h)))) start)
   (let loop ()
     (define curr (heap-min Q))
@@ -154,32 +153,17 @@
        (if (= (heap-count Q) 0) no-solution (loop))])))
 
 (define (deduce definite-horn-clauses top-clauses)
-  (define (res-moves s) (map (λ(x) (list x 'move 1)) (filter (λ(x) (not (or (eq? x #f) (eq? x '())))) (map (λ(x) (append-map (λ(y) (printf "x = ~s\ny = ~s\n\n" y x) (resolve y x)) definite-horn-clauses)) s))))
+  (define (res-moves s) 
+       (filter-map 
+        (λ(rhs) (let ([resolved (resolve s rhs)]) (if resolved (list resolved (first-term rhs) 1) #f))) 
+               definite-horn-clauses) 
+    )
   (define (res-heuristic s) 0)
   (define (res-goal? s) (eq? s '()))
   (A*-graph-search top-clauses res-goal? res-moves res-heuristic)
-  ;(res-moves top-clauses)
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TESTING ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define clause1 '((=(* x 1)x)))
-(define clause2 '((=(* 1 x)x)))
-(define clause3 '( ((=(* x 1)x)) ((=(* 1 x)x)) ))
-(define top-clause '((¬(=(*(G)(F))(H))) ))
-(define clause4 '((=(*(G)(F))(H)) ) )
-(define clauseA '((¬(knows 1 x)) (¬(a (b c)))))
-(define clauseB '((knows y (mother y)) (a (b c)) (d (e (f g)))))
-
-(define axiom1 '((=(* x 1)x)))
-(define axiom2 '((=(* 1 x)x)))
-(define axiom3 '((=(* x(/x))1)))
-(define axiom4 '((=(*(/ x)x)1)))
-(define axiom5 '((=(* x w)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* u z) v))))
-(define axiom6 '((=(* u z)v)(¬(=(* x y)u))(¬(=(* y z)w))(¬(=(* x w) v))))
-(define axiom7 '((=(* x x)1)))
-(define hypo '((=(* (F) (G)) (H))))
-(define conj '((¬(=(* (G) (F))(H)))) )
-
 (define axioms2 '(
                   ((=(* x 1)x))
                   ((=(* 1 x)x))
@@ -192,46 +176,4 @@
                   ))
 
 (define conjs2 '( ((¬(= (*(G) (F)) (H)))) ) )
-
-
-
-(trace deduce)
-;(resolve conj axiom5)
-(deduce conjs2 axioms2) 
-;(resolve '( (¬(=(* (G) (F))(H))) ) '( (=(* x w)v) )) 
-;(unify '((¬ (= (* (G) (F)) (H)))) '((= (* (F) (G)) (H))) '())
-
-;(trace deduce)
-;(deduce axioms2 conjs2)
-;(trace resolve resolve-terms)
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;; TEST UNIFY FUNCTION  ;;;;;;;;;;;;;;;;;;;;;;;;;
-;(trace unify unify-var extend-bindings occurs-in? subst-bindings)
-;(unify '(X 3 Y) '((Y Z) Z 7) '())
-;(unify '(john x) '(john y) '())
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; UNIT TESTS
-;INPUT : (unify '(X 3 X) '(X 3 X) '())
-;OUTPUT: '()
-;
-;INPUT : (unify '(X 3 X) '(Zee 3 Zee) '())
-;OUTPUT: '((X . Zee)) or '((Zee . X))
-;
-;INPUT : (unify '(X 3 X) '(2 Y 2) '())
-;OUTPUT: ((X . 2) (Y . 3))
-;
-;INPUT : (unify '(X 3 X) '(Z Y 2) '())
-;OUTPUT: ((X . 2) (Y . 3) (Z . 2))
-;
-;INPUT : (unify '(X 3 Y) '(Z Y 2) '())
-;OUTPUT: #f
-;
-;INPUT : (unify '(X 3 Y) '((Y Z) Z 7) '())
-;OUTPUT: ((X 7 3) (Z . 3) (Y . 7))
-;
-;INPUT : (unify '(X 3 Y) '(2 Z W) '())
-;OUTPUT: ((X . 2) (Z . 3) (Y . W))
-;
-;INPUT : (unify 'X '(X 2) '())
-;OUTPUT: #f
+(deduce axioms2 conjs2) 
