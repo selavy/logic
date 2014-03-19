@@ -117,7 +117,7 @@
      (λ(rhs) (let ([resolved (resolve s rhs)]) (if resolved (list resolved (first rhs) 1) #f))) 
      definite-horn-clauses) 
     )
-  (define (res-heuristic s) 0)
+  (define (res-heuristic s) (length s))
   (define (res-goal? s) (eq? s '()))
   (A*-graph-search top-clauses res-goal? res-moves res-heuristic)
   )
