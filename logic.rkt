@@ -129,8 +129,8 @@
   (define (print-solution anode)
     (cond
       [(null? anode)]
-      [(null? (node-pred anode)) (list 'start (node-state anode) (node-g anode) (node-h anode) (node-f anode))]
-      [else (list (print-solution (node-pred anode)) (list (node-move anode) (node-state anode) (node-g anode) (node-h anode) (node-f anode)))]))
+      [(null? (node-pred anode)) (list (list 'start (node-state anode) (node-g anode) (node-h anode) (node-f anode)))]
+      [else (append (append (print-solution (node-pred anode))) (list (list (node-move anode) (node-state anode) (node-g anode) (node-h anode) (node-f anode))))]))
   (define (add-SAW-to-heap SAW prev)
     (let* [(weight (car (cdr (cdr SAW)))) (h (heuristic (car SAW))) (action (car (cdr SAW)))]
       (let [(g (if (null? prev) weight (+ weight (node-g prev))))]
@@ -189,6 +189,5 @@
                   ))
 (define conjs2 '( ((¬(= (*(G) (F)) (H)))) ) )
 
-;(trace deduce)
 (deduce axioms2 conjs2)
 (deduce axioms1 conjs1) 
