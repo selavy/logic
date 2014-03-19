@@ -113,7 +113,7 @@
 (define (resolve lc kd)
   (if (is-not-term? (first-term lc))
       (let* ([renamed-lc (rename-clause lc)] [unifiable (unify (first (rest (first-term renamed-lc))) (first-term kd) '())])
-        (if unifiable (instantiate-clause (append (cdr renamed-lc) (cdr kd)) unifiable) #f)
+        (if unifiable (rename-clause (instantiate-clause (append (cdr renamed-lc) (cdr kd)) unifiable)) #f)
         )
       #f
       )
@@ -132,7 +132,6 @@
       [(null? (node-pred anode)) (list 'start (node-state anode) (node-g anode) (node-h anode) (node-f anode))]
       [else (list (print-solution (node-pred anode)) (list (node-move anode) (node-state anode) (node-g anode) (node-h anode) (node-f anode)))]))
   (define (add-SAW-to-heap SAW prev)
-    (printf "SAW = ~s\nprev = ~s\n\n" SAW prev)
     (let* [(weight (car (cdr (cdr SAW)))) (h (heuristic (car SAW))) (action (car (cdr SAW)))]
       (let [(g (if (null? prev) weight (+ weight (node-g prev))))]
         (define f (+ g h))
@@ -164,6 +163,20 @@
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;; TESTING ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define axioms1 '(
+  ((Criminal x) (¬(American x)) (¬(Weapon y)) (¬(Sells x y z)) (¬(Hostile z)))
+  ((Enemy (Nono) (America) ))
+  ((Owns (Nono) (M1) ))
+  ((Missile (M1) ))
+  ((Sells (West) x (Nono)) (¬(Missile x)) (¬(Owns (Nono) x)))
+  ((American (West) ))
+  ((Weapon x) (¬(Missile x)))
+  ((Hostile x) (¬(Hostile (Mother-of x) )))
+  ((Hostile x) (¬(Enemy x (America) )))
+  ((Hostile x) (¬(Hostile (Father-of x) )))
+  ))
+(define conjs1 '(((¬(Criminal (West))))))
+
 (define axioms2 '(
                   ((=(* x 1)x))
                   ((=(* 1 x)x))
@@ -174,6 +187,8 @@
                   ((=(* x x)1))
                   ((=(*(F) (G)) (H)))
                   ))
-
 (define conjs2 '( ((¬(= (*(G) (F)) (H)))) ) )
-(deduce axioms2 conjs2) 
+
+;(trace deduce)
+(deduce axioms2 conjs2)
+(deduce axioms1 conjs1) 
