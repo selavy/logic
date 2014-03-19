@@ -15,11 +15,8 @@
 (define (reuse-cons x y x-y)
                     (if (and (eq? x (car x-y)) (eq? y (cdr x-y))) x-y (cons x y))
                     )
-
-(define (first x)
-  (if (pair? x) (car x) x))
-(define (rest x)
-  (if (pair? x) (cdr x) '()))
+(define (first x) (if (pair? x) (car x) x))
+(define (rest x) (if (pair? x) (cdr x) '()))
 (define (subst-bindings bindings x)
   (cond
     [(eq? x '()) '()]
@@ -52,27 +49,16 @@
     ((Var? v) #f)
     ((not (pair? x)) #f)
    (else (ormap (λ y (occur? v y θ)) (cdr x)))))
-
-(define (Var? v)
-  (symbol? v))
-
-(define (isBound x θ)
-  (if (eq? (assoc x θ) #f) #f #t))
-
-(define (value x θ)
-  (cdr (assoc x θ)))
-
+(define (Var? v) (symbol? v))
+(define (isBound x θ) (if (eq? (assoc x θ) #f) #f #t))
+(define (value x θ) (cdr (assoc x θ)))
 (define (replace-term a-list exp)
   (cond
     [(variable? exp) (let [(replacement (assoc exp a-list))] (if replacement (cdr replacement) exp))]
     [(pair? exp) (cons (replace-term a-list (car exp)) (replace-term a-list (cdr exp)))]
     [else (map (λ(x) (replace-term a-list x)) exp)]
-  ))
-
-(define (instantiate x e)
-  (subst-bindings e x)
-  )
-
+    ))
+(define (instantiate x e) (subst-bindings e x))
 (define (unique-find-anywhere-if exp found-so-far)
   (cond
     [(eq? exp '()) found-so-far]
@@ -80,44 +66,20 @@
               (if (and (variable? exp) (not (member exp found-so-far))) (cons exp found-so-far) found-so-far)
               (unique-find-anywhere-if (rest (first exp)) (unique-find-anywhere-if (rest (rest exp)) found-so-far)))])
   )
-
-(define (freevarsin x)
-  (unique-find-anywhere-if x '())
-  )
-
-(define (rename-variables x)
-  (subst-bindings (map (λ(y) (cons y (gensym y))) (freevarsin x)) x)
-  )
-
-(define (instantiate-clause c a)
-  (map (λ(x) (instantiate x a)) c)
-  )
-
-(define (rename-clause c)
-    (map (λ(x) (rename-variables x)) c)
-  )
-
-(define (freevarsin-clause c)
-  (append (map (λ(x) (rename-variables x))c))
-  )
-
-(define (unifier x y)
-  (instantiate x (unify x (rename-variables y) '()))
-  )
-
-(define (is-not-term? x)
-  (is-not? (first x)))
-
+(define (freevarsin x) (unique-find-anywhere-if x '()))
+(define (rename-variables x) (subst-bindings (map (λ(y) (cons y (gensym y))) (freevarsin x)) x))
+(define (instantiate-clause c a) (map (λ(x) (instantiate x a)) c))
+(define (rename-clause c) (map (λ(x) (rename-variables x)) c))
+(define (freevarsin-clause c) (append (map (λ(x) (rename-variables x))c)))
+(define (unifier x y) (instantiate x (unify x (rename-variables y) '())))
+(define (is-not-term? x) (is-not? (first x)))
 (define (first-term x) (first x))
-
 (define (resolve lc kd)
   (if (is-not-term? (first-term lc))
       (let* ([renamed-lc (rename-clause lc)] [unifiable (unify (first (rest (first-term renamed-lc))) (first-term kd) '())])
         (if unifiable (rename-clause (instantiate-clause (append (cdr renamed-lc) (cdr kd)) unifiable)) #f)
         )
-      #f
-      )
-  )
+      #f ))
 
 (require data/heap)
 (define(A*-graph-search start goal? moves heuristic)
