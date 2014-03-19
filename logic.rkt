@@ -1,7 +1,7 @@
 #lang racket
 (require (lib "trace.ss"))
 
-(define (variable? x) (and (not (is-not? x)) (symbol? x)))
+(define (variable? x) (symbol? x))
 (define (is-not? x) (eq? '¬ x))
 (define (isbound v θ) (pair? (assoc v θ)))
 (define (get-binding var bindings) (assoc var bindings))
@@ -31,11 +31,11 @@
 (define (unify x y θ)
   (cond
     ((eq? θ #f) #f)
-    ((and (Var? x)(isBound x θ)) (unify (value x θ) y θ))
-    ((and (Var? y)(isBound y θ)) (unify x (value y θ) θ))
+    ((and (variable? x)(isBound x θ)) (unify (value x θ) y θ))
+    ((and (variable? y)(isBound y θ)) (unify x (value y θ) θ))
     ((eq? x y) θ)
-    ((Var? x) (if (occur? x y θ) #f (cons (cons y x) θ)))
-    ((Var? y) (if (occur? y x θ) #f (cons (cons y x) θ)))
+    ((variable? x) (if (occur? x y θ) #f (cons (cons y x) θ)))
+    ((variable? y) (if (occur? y x θ) #f (cons (cons y x) θ)))
     ((equal? x y) θ)
     ((not (and (pair? x)(pair? y))) #f)
     ((not (eq? (car x)(car y))) #f)
@@ -44,12 +44,11 @@
 
 (define (occur? v x θ)
   (cond
-    ((and (Var? x)(isBound x θ)) (occur? v (value x θ) θ))
+    ((and (variable? x)(isBound x θ)) (occur? v (value x θ) θ))
     ((eq? v x) #t)
-    ((Var? v) #f)
+    ((variable? v) #f)
     ((not (pair? x)) #f)
    (else (ormap (λ y (occur? v y θ)) (cdr x)))))
-(define (Var? v) (symbol? v))
 (define (isBound x θ) (if (eq? (assoc x θ) #f) #f #t))
 (define (value x θ) (cdr (assoc x θ)))
 (define (replace-term a-list exp)
